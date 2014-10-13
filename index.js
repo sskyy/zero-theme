@@ -2,7 +2,7 @@ var path = require('path'),
   q = require('q'),
   _ = require('lodash'),
   fs = require('fs'),
-  appUrl  = path.join(__dirname, "../")
+  appUrl  = process.cwd()
 
 function walk(dir, filter) {
   var results = [];
@@ -181,6 +181,7 @@ module.exports = {
     var matchRoute = path.join("/"+ (root.config.omitModule?"":module.name), (module.theme.prefix?module.theme.prefix:"")) ,
       themePath = path.join('modules',module.name, module.theme.directory)
 
+    console.log("====",themePath)
     //cache all files
     var pages = walk(path.join(appUrl, themePath), function( f){ return _.indexOf(root.config.engines, f.split(".").pop()) !== -1}),
       statics = walk( path.join(appUrl, themePath), function(f){ return _.indexOf(root.config.engines, f.split(".").pop()) == -1 })
