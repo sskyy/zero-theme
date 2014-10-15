@@ -77,7 +77,7 @@ function generateThemeHandler( module){
           }else{
             ZERO.mlog("THEME"," can't find template", page)
           }
-        }).fail(function(err){
+        }).catch(function(err){
           console.log(err)
           ZERO.error(err)
         })
