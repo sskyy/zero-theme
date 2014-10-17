@@ -1,14 +1,15 @@
 {
   "name": "zero-theme",
   "version": "0.0.2",
-  "description" : "zero module",
-  "zero" : {
-    "dependencies" : {
-      "request":"zero-request^0.0.1",
-      "statics":"zero-statics^0.0.1",
-      "config":"zero-configure^0.0.1",
-      "model":"zero-model^0.0.1"
-    }
+  "description": "zero module",
+  "zero": {
+    "dependencies": {
+      "request": "^0.0.1",
+      "statics": "^0.0.1",
+      "config": "^0.0.1",
+      "model": "^0.0.1"
+    },
+    "name": "theme"
   },
-  "author" : "jiamiu"
+  "author": "jiamiu"
 }
