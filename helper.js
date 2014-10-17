@@ -39,7 +39,7 @@ function gitCommitAndPush( modulePath){
       repo.git.git("commit",{},"-m","standard all modules to npm", function(err, res){
         console.log( modulePath, ("commit done " +res).green,err||"")
         if( !err ){
-          repo.git("push",{},"origin","master",function(err, res){
+          repo.git.git("push",{},"origin","master",function(err, res){
             console.log(  modulePath,("push done " + res).green,err||"")
             if( err ){
               console.log("try to add origin ")
