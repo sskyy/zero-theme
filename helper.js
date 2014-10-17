@@ -31,7 +31,7 @@ function gitCommitAndPush( modulePath){
   console.log("begin to deal with",modulePath)
 
   var moduleName = modulePath.split("/").pop()
-  new Repo(modulePath, {},function(err, repo){
+  new Repo(modulePath,function(err, repo){
     if( err ){
       return console.log(err)
     }
@@ -39,12 +39,12 @@ function gitCommitAndPush( modulePath){
     repo.git.git('add',{},'--all',function(err, res) {
       if( err ) return console.log("add err",err)
       repo.git.git("commit",{},"-m","standard all modules to npm", function(err, res){
-        if( err) return console.log( modulePath, ("commit done " +res).green,err||"")
-        repo.git.git("push",{},"origin","master",function(err, res){
-          if( err ){
-            console.log( "push error", modulePath)
-          }
-        })
+//        if( err) return console.log( modulePath, ("commit done " +res).green,err||"")
+//        repo.git.git("push",{},"origin","master",function(err, res){
+//          if( err ){
+//            console.log( "push error", modulePath)
+//          }
+//        })
       })
     })
   })
