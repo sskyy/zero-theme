@@ -6,7 +6,7 @@
     "dependencies" : {
       "request":"zero-request^0.0.1",
       "statics":"zero-statics^0.0.1",
-      "config":"zero-config^0.0.1",
+      "config":"zero-configure^0.0.2",
       "model":"zero-model^0.0.1"
     }
   },
