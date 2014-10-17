@@ -38,13 +38,16 @@ function gitCommitAndPush( modulePath){
 
     repo.git.git('add',{},'--all',function(err, res) {
       if( err ) return console.log("add err",err)
+      console.log("add finished",modulePath,res)
       repo.git.git("commit",{},"-m","standard all modules to npm", function(err, res){
-//        if( err) return console.log( modulePath, ("commit done " +res).green,err||"")
-//        repo.git.git("push",{},"origin","master",function(err, res){
-//          if( err ){
-//            console.log( "push error", modulePath)
-//          }
-//        })
+        if( err) return console.log( modulePath, ("commit done " +res).green,err||"")
+        console.log("commit finished",modulePath,res)
+        repo.git.git("push",{},"origin","master",function(err, res){
+          if( err ){
+            console.log( "push error", modulePath)
+          }
+        console.log("push finished",modulePath,res)
+        })
       })
     })
   })
