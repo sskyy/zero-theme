@@ -1,13 +1,13 @@
 {
-  "name": "zero-user",
+  "name": "zero-theme",
   "version": "0.0.1",
   "description" : "zero module",
   "zero" : {
     "dependencies" : {
       "request":"zero-request^0.0.1",
-      "bus":"zero-bus^0.0.1",
-      "model":"zero-model^0.0.1",
-      "rest":"zero-rest^0.0.1"
+      "statics":"zero-statics^0.0.1",
+      "config":"zero-config^0.0.1",
+      "model":"zero-model^0.0.1"
     }
   },
   "author" : "jiamiu"
