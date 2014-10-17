@@ -1,6 +1,6 @@
 {
   "name": "zero-theme",
-  "version": "0.0.3",
+  "version": "0.0.5",
   "description": "zero module",
   "zero": {
     "dependencies": {
