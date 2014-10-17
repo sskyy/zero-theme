@@ -28,10 +28,12 @@ modules.forEach(function( module){
 
 
 function gitCommitAndPush( modulePath){
+  console.log("begin to deal with",modulePath)
+
   var moduleName = modulePath.split("/").pop()
   new Repo(modulePath, {},function(err, repo){
     if( err ){
-      return console.log(err, "aaaa")
+      return console.log(err)
     }
 
     repo.git.git('add',{},'--all',function(err, res) {
