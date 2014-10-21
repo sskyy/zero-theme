@@ -1,8 +1,12 @@
 var path = require('path'),
-  q = require('q'),
+  Promise = require('bluebird'),
   _ = require('lodash'),
   fs = require('fs'),
-  appUrl  = process.cwd()
+  appUrl  = process.cwd(),
+  argv = require('optimist').argv,
+  less = require('gulp-less'),
+  gulp = require('gulp'),
+  sourcemaps = require('gulp-sourcemaps')
 
 function walk(dir, filter) {
   var results = [];
@@ -31,7 +35,7 @@ function findExtension( collection, exts, item){
 function generateThemeHandler( module){
   var root = this
 
-  var matchRoute = path.join("/"+ (root.config.omitModule?"":module.name), (module.theme.prefix?module.theme.prefix:"")) ,
+  var matchRoute = path.join("/"+ module.name, (module.theme.prefix?module.theme.prefix:"")) ,
     themePath = path.join('modules',module.name, module.theme.directory )
 
 
@@ -48,6 +52,31 @@ function generateThemeHandler( module){
 
     req.bus.fcall("theme.render", fireParams, function(){
       var bus = this
+
+      if( !argv.prod ){
+        if( /\.css$/.test(cachePath) ){
+          var lessFile =cachePath.replace(/\.css$/,".less")
+
+          if(  root.cache[module.name].statics[lessFile] ){
+            //read from less and compile
+            return new Promise(function(resolve, reject){
+              gulp.src(lessFile)
+                .pipe(sourcemaps.init())
+                .pipe(less())
+                .pipe(sourcemaps.write())
+                .pipe(gulp.dest(path.dirname( lessFile)))
+                .on("end",function(){
+                  bus.data('respond.file', cachePath)
+                  resolve()
+                })
+                .on('error',function(){ reject()})
+            })
+          }
+        }else{
+          //TODO handle coffee files
+
+        }
+      }
 
       if( root.cache[module.name].statics[cachePath] ) {
         //1. check if current view route match any static files
@@ -97,8 +126,8 @@ function generateThemeHandler( module){
     }).then(function(){
       next()
     }).catch(function(err){
-      console.log( err )
       ZERO.error(err)
+      next()
     })
   }
 }
@@ -106,7 +135,7 @@ function generateThemeHandler( module){
 function getLocals( locals, route ){
   var root = this
 
-  return q.Promise(function( resolve, reject){
+  return new Promise(function( resolve, reject){
     var matchedHandlers = root.dep.request.getRouteHandlers( route.url, route.method, locals),
       results = {}
     ZERO.mlog("theme","getLocals", route.url)
@@ -161,8 +190,6 @@ function getLocals( locals, route ){
 module.exports = {
   config : {
     'engines'  : ['ejs','jade'],
-    'omitModule' : false,
-    'crudMap' : {'get':'list','post':'create','put':'update','delete':'destroy'}
   },
   cache : {},
   route : {},
@@ -177,10 +204,9 @@ module.exports = {
     var root = this
     root.cache[module.name] = {}
 
-    var matchRoute = path.join("/"+ (root.config.omitModule?"":module.name), (module.theme.prefix?module.theme.prefix:"")) ,
+    var matchRoute = path.join("/"+ module.name, (module.theme.prefix?module.theme.prefix:"")) ,
       themePath = path.join('modules',module.name, module.theme.directory)
 
-    console.log("====",themePath)
     //cache all files
     var pages = walk(path.join(appUrl, themePath), function( f){ return _.indexOf(root.config.engines, f.split(".").pop()) !== -1}),
       statics = walk( path.join(appUrl, themePath), function(f){ return _.indexOf(root.config.engines, f.split(".").pop()) == -1 })
@@ -206,22 +232,11 @@ module.exports = {
     //TODO find the right view file
     var i, templateName, templatePath, tmp = restRoute.url.slice(1).split("/"), extension
 
+    console.log("finding page", JSON.stringify(restRoute), tmp)
 
     if( extension = findExtension( cache.page,root.config.engines, path.join( appUrl, themePath, restRoute.url.slice(1) ) ) ){
-      //match certain files
-      templateName = restRoute.url.slice(1)
-    }else if( tmp.length == 1){
-      // 测试代码, 优先找到符合条件的页面，如果没有找到，则按照crud action pages的方式寻找？
-      templateName = tmp[0]
-      templatePath = path.join( appUrl, themePath, templateName )
-      extension = findExtension( cache.page,root.config.engines, templatePath )
-
-      if (!extension) {
-        //deal with basic crud action pages
-        templateName = tmp.concat(root.config.crudMap[restRoute.method]).join('-')
-        templatePath = path.join( appUrl, themePath, templateName)
-        extension = findExtension( cache.page,root.config.engines,templatePath )
-      }
+        //match certain files
+        templateName = restRoute.url.slice(1)
     }else{
       for( i = tmp.length;i>0; i--){
         templateName = tmp.slice(0,i).join('-')
