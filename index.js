@@ -53,6 +53,7 @@ function generateThemeHandler( module){
     req.bus.fcall("theme.render", fireParams, function(){
       var bus = this
 
+      //1. deal with pre-process resource files
       if( !argv.prod ){
         if( /\.css$/.test(cachePath) ){
           var lessFile =cachePath.replace(/\.css$/,".less")
@@ -78,13 +79,14 @@ function generateThemeHandler( module){
         }
       }
 
-      if( root.cache[module.name].statics[cachePath] ) {
-        //1. check if current view route match any static files
+      //2. deal with resource files
+      if( /\.[a-zA-Z]+$/.test(cachePath) ) {
 //        ZERO.mlog("THEME","find static file", cachePath)
-        bus.data('respond.file', cachePath)
-
-      }else if( root.dep.model.models[restRoute.url.split("/")[1]] !== undefined ){
-        //2. check if current view route match any model api
+        if(root.cache[module.name].statics[cachePath] ){
+          bus.data('respond.file', cachePath)
+        }
+      //3. check if current view route need to mock
+      }else if( page = root.findMockOption( root.mock[module.name], restRoute, themePath).template ){
         ZERO.mlog("THEME","find model match", restRoute)
 
         bus.fire('request.mock', fireParams)
@@ -93,14 +95,11 @@ function generateThemeHandler( module){
         bus.then(function(){
           ZERO.mlog("THEME","model action done", restRoute.url)
 
-          page = root.findPage(root.cache[module.name],restRoute,themePath)
-
           if( page ){
             ZERO.mlog("THEME","find template", page, bus.data('respond'))
             bus.data('respond.page', page)
             //merge locals
             return getLocals.call(root, root.locals, {url:req.path,method:'get'}).then(function( locals ){
-
               bus.data('respond.data',locals)
             })
           }else{
@@ -111,8 +110,8 @@ function generateThemeHandler( module){
           ZERO.error(err)
         })
 
+      //4. check if current view route match any page
       }else if(page = root.findPage(root.cache[module.name],restRoute,themePath)){
-        //3. check if current view route match any page
         ZERO.mlog("THEME"," find view page match", restRoute.url)
 
         //deal with locals
@@ -165,9 +164,8 @@ function getLocals( locals, route ){
 
     }
   })
-
-
 }
+
 
 /**
  * @description
@@ -189,11 +187,12 @@ function getLocals( locals, route ){
  */
 module.exports = {
   config : {
-    'engines'  : ['ejs','jade'],
+    'engines'  : ['ejs','jade']
   },
   cache : {},
   route : {},
   locals : [],
+  mock : {},
   /**
    * @param module
    * @returns {boolean}
@@ -226,28 +225,34 @@ module.exports = {
       })
     }
     //standard all routes
+    if( module.theme.mock ){
+      root.mock[module.name] = module.theme.mock
+    }
+
   },
   findPage : function( cache, restRoute, themePath ){
     var root = this
     //TODO find the right view file
-    var i, templateName, templatePath, tmp = restRoute.url.slice(1).split("/"), extension
-
-    console.log("finding page", JSON.stringify(restRoute), tmp)
-
+    var templateName, extension
+    console.log("finding page", JSON.stringify(restRoute))
     if( extension = findExtension( cache.page,root.config.engines, path.join( appUrl, themePath, restRoute.url.slice(1) ) ) ){
         //match certain files
         templateName = restRoute.url.slice(1)
-    }else{
-      for( i = tmp.length;i>0; i--){
-        templateName = tmp.slice(0,i).join('-')
-        templatePath = path.join( appUrl, themePath, templateName)
-        extension = findExtension( cache.page,root.config.engines,templatePath )
-        if( extension ) break;
-      }
     }
 
     return extension ? path.join( themePath, templateName) + "." +extension : false
+  },
+  findMockOption : function( mock, restRoute, themePath){
+    var root = this,
+      output = false
+    _.any( Object.keys(mock), function( mockUrl ){
+      var match =root.dep.request.matchUrl( restRoute.url, mockUrl)
+      if( match){
+        output = {mockUrl:mockUrl,match :match,template:path.join( themePath,mock[mockUrl] )}
+        return true
+      }
+    })
+    return output
   }
-
 }
 
