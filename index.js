@@ -224,17 +224,23 @@ module.exports = {
         root.locals.push(_.extend(root.dep.request.standardRoute( url ),{handler:{data:data}}))
       })
     }
-    //standard all routes
+
+    //check if there are route need mock
     if( module.theme.mock ){
       root.mock[module.name] = module.theme.mock
     }
 
+    //set index page
+    if( module.theme.index ){
+      root.dep.request.add("GET /", function( req, res){
+        res.redirect( module.theme.index )
+      })
+    }
   },
   findPage : function( cache, restRoute, themePath ){
     var root = this
     //TODO find the right view file
     var templateName, extension
-    console.log("finding page", JSON.stringify(restRoute))
     if( extension = findExtension( cache.page,root.config.engines, path.join( appUrl, themePath, restRoute.url.slice(1) ) ) ){
         //match certain files
         templateName = restRoute.url.slice(1)
