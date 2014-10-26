@@ -34,6 +34,7 @@ function findExtension( collection, exts, item){
 
 function generateThemeHandler( module){
   var root = this
+  var logger = root.dep.logger
 
   var matchRoute = path.join("/"+ module.name, (module.theme.prefix?module.theme.prefix:"")) ,
     themePath = path.join('modules',module.name, module.theme.directory )
@@ -81,38 +82,37 @@ function generateThemeHandler( module){
 
       //2. deal with resource files
       if( /\.[a-zA-Z]+$/.test(cachePath) ) {
-//        ZERO.mlog("THEME","find static file", cachePath)
+//        logger.log("THEME","find static file", cachePath)
         if(root.cache[module.name].statics[cachePath] ){
           bus.data('respond.file', cachePath)
         }
       //3. check if current view route need to mock
       }else if( page = root.findMockOption( root.mock[module.name], restRoute, themePath).template ){
-        ZERO.mlog("THEME","find model match", restRoute)
+        logger.log("THEME","find model match", restRoute)
 
-        bus.fire('request.mock', fireParams)
-
-        //Don't return bus.then in `bus.fcall` !!! this may never end.
-        bus.then(function(){
-          ZERO.mlog("THEME","model action done", restRoute.url)
+        return bus.fire('request.mock', fireParams).then(function(){
+          logger.log("THEME","model action done", restRoute.url)
 
           if( page ){
-            ZERO.mlog("THEME","find template", page, bus.data('respond'))
+            logger.log("THEME","find template", page)
             bus.data('respond.page', page)
             //merge locals
             return getLocals.call(root, root.locals, {url:req.path,method:'get'}).then(function( locals ){
-              bus.data('respond.data',locals)
+              bus.data('respond.data', locals)
+              console.log( locals,bus.data('respond.data'))
+            }).catch(function(e){
+              console.error(e)
             })
           }else{
-            ZERO.mlog("THEME"," can't find template", page)
+            logger.log("THEME"," can't find template", page)
           }
         }).catch(function(err){
-          console.log(err)
-          ZERO.error(err)
+          logger.error(err)
         })
 
       //4. check if current view route match any page
       }else if(page = root.findPage(root.cache[module.name],restRoute,themePath)){
-        ZERO.mlog("THEME"," find view page match", restRoute.url)
+        logger.log("THEME"," find view page match", restRoute.url)
 
         //deal with locals
         bus.data( 'respond.page',page )
@@ -120,12 +120,12 @@ function generateThemeHandler( module){
           bus.data('respond.data',locals)
         })
       }else{
-        ZERO.mlog("THEME"," cannot find any match",JSON.stringify(restRoute),cachePath)
+        logger.log("THEME"," cannot find any match",JSON.stringify(restRoute),cachePath)
       }
     }).then(function(){
       next()
     }).catch(function(err){
-      ZERO.error(err)
+      logger.error(err)
       next()
     })
   }
@@ -133,11 +133,12 @@ function generateThemeHandler( module){
 
 function getLocals( locals, route ){
   var root = this
+  var logger = root.dep.logger
 
   return new Promise(function( resolve, reject){
     var matchedHandlers = root.dep.request.getRouteHandlers( route.url, route.method, locals),
       results = {}
-    ZERO.mlog("theme","getLocals", route.url)
+    logger.log("theme","getLocals", route.url)
 
     applyNext(0)
 
@@ -146,21 +147,27 @@ function getLocals( locals, route ){
         return resolve(results)
       }
 
-      if(_.isFunction( matchedHandlers[n].data)){
-        var applyResult = matchedHandlers[n].data(req)
-        if( applyResult && applyResult.then ){
-          applyResult.fin(function(){
-            applyNext(++n)
-          })
-        }else{
-          applyNext(++n)
-        }
-      }else{
-        if(_.isPlainObject( matchedHandlers[n].data )){
-          _.merge( results, matchedHandlers[n].data)
+      var applyResult = _.isFunction(matchedHandlers[n].data) ? matchedHandlers[n].data(req) : matchedHandlers[n].data
+      Promise.resolve(applyResult).then(function( resolvedResult ){
+        if(_.isObject(results)){
+          _.merge( results, _.cloneDeep(resolvedResult))
         }
         applyNext(++n)
-      }
+      })
+
+      //if(_.isFunction( matchedHandlers[n].data)){
+      //  var applyResult = matchedHandlers[n].data(req)
+      //  Promise.resolve(applyResult).then(function(){
+      //    applyNext(++n)
+      //  })
+      //}else{
+      //  if(_.isPlainObject( matchedHandlers[n].data )){
+      //    _.merge( results, _.cloneDeep(matchedHandlers[n].data))
+      //    console.log("=============",results,"==============")
+      //
+      //  }
+      //  applyNext(++n)
+      //}
 
     }
   })
@@ -200,7 +207,7 @@ module.exports = {
   expand : function( module ){
     if( !module.theme ) return false
 
-    var root = this
+    var root = this,logger = root.dep.logger
     root.cache[module.name] = {}
 
     var matchRoute = path.join("/"+ module.name, (module.theme.prefix?module.theme.prefix:"")) ,
@@ -215,7 +222,7 @@ module.exports = {
       statics:_.zipObject( statics,  fill(statics.length, true))
     }
 
-    ZERO.mlog("THEME","route",matchRoute)
+    logger.log("THEME","route",matchRoute)
 
     root.dep.request.add( matchRoute + "/*",generateThemeHandler.call(root,module) )
 
