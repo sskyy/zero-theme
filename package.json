@@ -1,6 +1,6 @@
 {
   "name": "zero-theme",
-  "version": "0.0.9",
+  "version": "0.0.10",
   "description": "zero module",
   "zero": {
     "dependencies": {
@@ -12,5 +12,7 @@
       "model": "^0.0.1"
     }
   },
-  "author": "jiamiu"
+  "author": {
+    "name": "jiamiu"
+  }
 }
