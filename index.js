@@ -32,13 +32,26 @@ function findExtension( collection, exts, item){
   return _.find( exts, function( ext ){ return collection[item+"."+ext]})
 }
 
-function generateThemeHandler( module){
+function preprocessLess( lessFile ){
+  return new Promise(function(resolve, reject){
+    gulp.src(lessFile)
+      .pipe(sourcemaps.init())
+      .pipe(less())
+      .pipe(sourcemaps.write())
+      .pipe(gulp.dest(path.dirname( lessFile)))
+      .on("end",function(){
+        resolve()
+      })
+      .on('error',function(){ reject()})
+  })
+}
+
+function generateThemeHandler( moduleName, themeConfig, cache ){
   var root = this
   var logger = root.dep.logger
 
-  var matchRoute = path.join("/"+ module.name, (module.theme.prefix?module.theme.prefix:"")) ,
-    themePath = path.join('modules',module.name, module.theme.directory )
-
+  var matchRoute = path.join("/"+ moduleName, (themeConfig.prefix?themeConfig.prefix:"")) ,
+    themePath = path.join('modules',moduleName, themeConfig.directory )
 
   return function( req, res, next ){
     var restRoute = {
@@ -59,19 +72,10 @@ function generateThemeHandler( module){
         if( /\.css$/.test(cachePath) ){
           var lessFile =cachePath.replace(/\.css$/,".less")
 
-          if(  root.cache[module.name].statics[lessFile] ){
+          if(  cache.statics[lessFile] ){
             //read from less and compile
-            return new Promise(function(resolve, reject){
-              gulp.src(lessFile)
-                .pipe(sourcemaps.init())
-                .pipe(less())
-                .pipe(sourcemaps.write())
-                .pipe(gulp.dest(path.dirname( lessFile)))
-                .on("end",function(){
-                  bus.data('respond.file', cachePath)
-                  resolve()
-                })
-                .on('error',function(){ reject()})
+            return preprocessLess(lessFile).then(function(){
+              bus.data('respond.file', cachePath)
             })
           }
         }else{
@@ -83,35 +87,29 @@ function generateThemeHandler( module){
       //2. deal with resource files
       if( /\.[a-zA-Z]+$/.test(cachePath) ) {
 //        logger.log("THEME","find static file", cachePath)
-        if(root.cache[module.name].statics[cachePath] ){
+        if(cache.statics[cachePath] ){
           bus.data('respond.file', cachePath)
         }
       //3. check if current view route need to mock
-      }else if( page = root.findMockOption( root.mock[module.name], restRoute, themePath).template ){
+      }else if( page = root.findMockOption( root.mock[moduleName], restRoute, themePath).template ){
         logger.log("THEME","find model match", restRoute)
 
         return bus.fire('request.mock', fireParams).then(function(){
           logger.log("THEME","model action done", restRoute.url)
+          bus.data('respond.page', page)
+          //merge locals
+          return getLocals.call(root, root.locals, {url:req.path,method:'get'}).then(function( locals ){
+            bus.data('respond.data', locals)
+          }).catch(function(e){
+            console.error(e)
+          })
 
-          if( page ){
-            logger.log("THEME","find template", page)
-            bus.data('respond.page', page)
-            //merge locals
-            return getLocals.call(root, root.locals, {url:req.path,method:'get'}).then(function( locals ){
-              bus.data('respond.data', locals)
-              console.log( locals,bus.data('respond.data'))
-            }).catch(function(e){
-              console.error(e)
-            })
-          }else{
-            logger.log("THEME"," can't find template", page)
-          }
         }).catch(function(err){
           logger.error(err)
         })
 
       //4. check if current view route match any page
-      }else if(page = root.findPage(root.cache[module.name],restRoute,themePath)){
+      }else if(page = root.findPage(cache,restRoute,themePath)){
         logger.log("THEME"," find view page match", restRoute.url)
 
         //deal with locals
@@ -154,25 +152,28 @@ function getLocals( locals, route ){
         }
         applyNext(++n)
       })
-
-      //if(_.isFunction( matchedHandlers[n].data)){
-      //  var applyResult = matchedHandlers[n].data(req)
-      //  Promise.resolve(applyResult).then(function(){
-      //    applyNext(++n)
-      //  })
-      //}else{
-      //  if(_.isPlainObject( matchedHandlers[n].data )){
-      //    _.merge( results, _.cloneDeep(matchedHandlers[n].data))
-      //    console.log("=============",results,"==============")
-      //
-      //  }
-      //  applyNext(++n)
-      //}
-
     }
   })
 }
 
+
+function simpleHash( array ){
+  return _.zipObject( array, fill(array.length, true))
+}
+
+function inArray( array, item ){
+  return array.indexOf( item) !== -1
+}
+
+function needEngine( engines, page ){
+  return inArray( engines, page.split(".").pop() )
+}
+
+function not( func){
+  return function(){
+    return !func.apply(this, arguments)
+  }
+}
 
 /**
  * @description
@@ -192,10 +193,11 @@ function getLocals( locals, route ){
  * }
  *
  */
-module.exports = {
+var themeModule = {
   config : {
     'engines'  : ['ejs','jade']
   },
+  index : null,
   cache : {},
   route : {},
   locals : [],
@@ -207,42 +209,41 @@ module.exports = {
   expand : function( module ){
     if( !module.theme ) return false
 
-    var root = this,logger = root.dep.logger
-    root.cache[module.name] = {}
+    var root = this,logger = root.dep.logger,moduleName = module.name
+    root.cache[moduleName] = {}
 
-    var matchRoute = path.join("/"+ module.name, (module.theme.prefix?module.theme.prefix:"")) ,
-      themePath = path.join('modules',module.name, module.theme.directory)
+    //[].concat means make it an array
+    _.forEach( [].concat( module.theme), function( themeConfig){
+      var matchRoute = path.join("/"+ moduleName, (themeConfig.prefix?themeConfig.prefix:"")) ,
+        themePath = path.join('modules',moduleName, themeConfig.directory)
 
-    //cache all files
-    var pages = walk(path.join(appUrl, themePath), function( f){ return _.indexOf(root.config.engines, f.split(".").pop()) !== -1}),
-      statics = walk( path.join(appUrl, themePath), function(f){ return _.indexOf(root.config.engines, f.split(".").pop()) == -1 })
+      //1. cache all files in  hash map
+      root.cache[moduleName] = root.cache[moduleName] || {}
+      root.cache[moduleName][matchRoute]  = {
+        page: simpleHash( walk(path.join(appUrl, themePath), _.partial(needEngine, root.config.engines) ) ),
+        statics: simpleHash(walk( path.join(appUrl, themePath), not(_.partial(needEngine, root.config.engines))))
+      }
 
-    root.cache[module.name] = {
-      page: _.zipObject( pages,  fill(pages.length, true)),
-      statics:_.zipObject( statics,  fill(statics.length, true))
-    }
+      if( themeConfig.locals ){
+        _.forEach( themeConfig.locals, function( data, url ){
+          root.locals.push(_.extend(root.dep.request.standardRoute( url ),{handler:{data:data}}))
+        })
+      }
 
-    logger.log("THEME","route",matchRoute)
+      //2. check if there are route need mock
+      if( themeConfig.mock ){
+        root.mock[moduleName] = themeConfig.mock
+      }
 
-    root.dep.request.add( matchRoute + "/*",generateThemeHandler.call(root,module) )
+      //3. generate handler
+      logger.log("THEME","match route",matchRoute, themeConfig.directory)
+      root.dep.request.add( matchRoute + "/*",generateThemeHandler.call(root,moduleName, themeConfig, root.cache[moduleName][matchRoute]) )
 
-    if( module.theme.locals ){
-      _.forEach( module.theme.locals, function( data, url ){
-        root.locals.push(_.extend(root.dep.request.standardRoute( url ),{handler:{data:data}}))
-      })
-    }
-
-    //check if there are route need mock
-    if( module.theme.mock ){
-      root.mock[module.name] = module.theme.mock
-    }
-
-    //set index page
-    if( module.theme.index ){
-      root.dep.request.add("GET /", function( req, res){
-        res.redirect( module.theme.index )
-      })
-    }
+      //TODO may overwrite
+      if( themeConfig.index){
+        root.index = themeConfig.index
+      }
+    })
   },
   findPage : function( cache, restRoute, themePath ){
     var root = this
@@ -268,6 +269,17 @@ module.exports = {
       }
     })
     return output
-  }
+  },
+  bootstrap : {"function":function(){
+    //set index page
+    if( themeModule.index ){
+      themeModule.dep.request.add("GET /", function( req, res){
+        res.redirect( themeModule.index )
+      })
+    }
+  },
+  order : {before : "request.bootstrap"}}
 }
+
+module.exports = themeModule
 
