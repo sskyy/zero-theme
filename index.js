@@ -109,7 +109,7 @@ function generateThemeHandler( moduleName, themeConfig, cache ){
         })
 
       //4. check if current view route match any page
-      }else if(page = root.findPage(cache,restRoute,themePath)){
+      }else if(page = root.findPage(cache,restRoute,themePath, root.config.engines)){
         logger.log("THEME"," find view page match", restRoute.url)
 
         //deal with locals
@@ -195,7 +195,7 @@ function not( func){
  */
 var themeModule = {
   config : {
-    'engines'  : ['ejs','jade']
+    'engines'  : ['ejs','jade','hbs']
   },
   index : null,
   cache : {},
@@ -245,11 +245,11 @@ var themeModule = {
       }
     })
   },
-  findPage : function( cache, restRoute, themePath ){
+  findPage : function( cache, restRoute, themePath,engines ){
     var root = this
     //TODO find the right view file
     var templateName, extension
-    if( extension = findExtension( cache.page,root.config.engines, path.join( appUrl, themePath, restRoute.url.slice(1) ) ) ){
+    if( extension = findExtension( cache.page,engines, path.join( appUrl, themePath, restRoute.url.slice(1) ) ) ){
         //match certain files
         templateName = restRoute.url.slice(1)
     }
