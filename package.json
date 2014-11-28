@@ -1,7 +1,10 @@
 {
   "name": "zero-theme",
-  "version": "0.0.13",
-  "description": "zero module",
+  "version": "0.0.14",
+  "keywords": [
+    "zero module"
+  ],
+  "description": "This module help you make your own theme system.",
   "zero": {
     "dependencies": {
       "request": "^0.0.1",

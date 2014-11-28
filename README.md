@@ -1,6 +1,6 @@
 # zero-theme #
 
-This module help you make your own theme system
+This module help you make your own theme system.
 
 ## Usage ##
 
