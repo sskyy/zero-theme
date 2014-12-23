@@ -29,4 +29,4 @@ This module help you make your own theme system.
 }
 ```
 
-3. Theme module will automatically render template file like `index.jade` as page and others as static files.
+3. Theme module will automatically render template file like `index.jade` as page and others common web resource as static files.
